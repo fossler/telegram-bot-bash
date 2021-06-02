@@ -1,9 +1,14 @@
 #!/bin/sh
 # description: Start or stop telegram-bash-bot
 #
-#### $$VERSION$$ v0.52-0-gdb7b19f
+# example service script to run bashbot in background as specified user
+#
+# tested on: ubuntu, opensuse, debian
+#
+#### $$VERSION$$ v1.5-0-g8adca9b
 # shellcheck disable=SC2009
 # shellcheck disable=SC2181
+# shellcheck disable=SC2250
 
 #
 ### BEGIN INIT INFO
@@ -17,66 +22,103 @@
 
 # save default values
 TERM="" # disable bashbot clear and color output
-runas="nobody"
-runcmd="echo Dry run:" # not actived until you edit lines below
+runcmd="echo Dry run:" # not activated until you edit lines below
 
 #######################
 # Configuration Section
 
 # edit the next line to fit the user you want to run bashbot, e.g. nobody:
-# runas="nobody" 
+runas="nobody"
 
-# uncomment one of the following lines to fit your system 
-# runcmd="su $runas -s /bin/bash -c "      # runasuser with *su*
-# runcmd="runuser $runas -s /bin/bash -c " # runasuser with *runuser*
+# uncomment one of the example lines to fit your system 
+# runcmd="su ${runas} -s /bin/bash -c "      # runasuser with *su*
+# runcmd="/usr/sbin/runuser ${runas} -s /bin/bash -c " # runasuser with *runuser*
 
 # edit the values of the following lines to fit your config:
-start="/usr/local/telegram-bot-bash/bashbot.sh"	# location of your bashbot.sh script
-name='' 	# your bot name as given to botfather, e.g. mysomething_bot
+# your bot name as given to botfather, e.g. mysomething_bot
+name=""
+# your bot installation dir
+bashbotdir="/usr/local/telegram-bot-bash"
+databotdir="${bashbotdir}/data-bot-bash"
+# programs to run
+bashbot="cd ${bashbotdir}; ${bashbotdir}/bashbot.sh"
+webhook="cd ${bashbotdir}; nohup ${bashbotdir}/bin/process_batch.sh --startbot --watch ${databotdir}/webhook-fifo-${name}"
+# set additionl parameter, e.g. debug
+mode=""
 
 # END Configuration
 #######################
 
-lockfile="$(dirname $start)/lockfile"
-[ "$name" = "" ] && name="$runas"
+[ "${name}" = "" ] && name="${runas}"
 
 case "$1" in
 'start')
-	$runcmd "$start start" # >/dev/null 2>&1 </dev/null
+	$runcmd "$bashbot start $mode" # >/dev/null 2>&1 </dev/null
 	RETVAL=$?
-	if [ "$RETVAL" = "0" ]; then
-		touch "$lockfile" >/dev/null 2>&1
-	fi
+	;;
+'starthook')
+	printf "Starting bashbot in webhook mode ... "
+	$runcmd "$webhook $mode </dev/null &>>${bashbotdir}/logs/WEBHOOK.log &" # >/dev/null 2>&1 </dev/null
+	sleep 1
+	$0 status
+	RETVAL=$?
 	;;
 'stop')
-	$runcmd "$start kill"
+	$runcmd "$bashbot stop $mode"
 	RETVAL=$?
-	if [ "$RETVAL" = "0" ]; then
-		rm -f "$lockfile"
+	;;
+'stophook')
+	printf "Stopping bashbot webhook mode ... "
+	KILLID="$(ps -f -u "${runas}" | grep "process_batch.sh --startbot" | sed -E 's/[^0-9]+([0-9]+).*/\1/')"
+	if [ -n "${KILLID}" ]; then
+		$runcmd "kill $(printf "%s" "${KILLID}" | tr -s "\r\n" "  " )"
+		sleep 1
+		$0 status
 	fi
+	RETVAL=$?
 	;;
 'status')
-	ps -f -u "$runas" | grep "$name" | grep -qF "bashbot.sh startbot"
+	ps -f -u "${runas}" | grep "${name}" | grep -qF "bashbot.sh startbot"
 	if [ "$?" = "0" ]; then
-		echo "bashbot ($name) is running"
+		printf "bashbot (%s) is running in poll mode\n" "${name}"
 		RETVAL=0
 	else
-		echo "bashbot ($name) is stopped"
-		RETVAL=1
+		ps -f -u "${runas}" | grep "${name}" | grep -qF "process_batch.sh --startbot"
+		if [ "$?" = "0" ]; then
+			printf "bashbot (%s) is running in webhook mode\n" "${name}"
+			RETVAL=0
+		else
+			printf "bashbot (%s) is stopped\n" "${name}"
+			RETVAL=1
+		fi
 	fi
 	;;
 'restart'|'reload')
 	$0 stop; $0 start 
 	RETVAL=$?
 	;;
-'suspendback'|'resumeback'|'killback')
-	$runcmd "$start $1"
+'restarthook'|'reloadhook')
+	$0 stophook; $0 starthook 
 	RETVAL=$?
 	;;
+'restartback')
+	$0 suspendback; $0 resumeback 
+	RETVAL=$?
+	;;
+'suspendback'|'resumeback'|'killback')
+	# shellcheck disable=SC2250
+	$runcmd "$bashbot $1 $mode"
+	RETVAL=$?
+	# kill inotifywait from runuser
+	if [ "$1" != "resumeback" ]; then 
+		# shellcheck disable=SC2046
+		kill -9 $(ps -u "${runas}" | grep inotifywait | sed 's/ .*//') >/dev/null 2>&1
+	fi  
+	;;
 *)
-	echo "Usage: $0 { start | stop | restart | reload | suspendback | resumeback | killback }"
+	printf "%s\n" "Usage: $0 [ start  | stop | restart | starthook |  stophook  | restarthook ]"
+	printf "%s\n" "       $0 [ status | restartback | suspendback  | resumeback | killback ]"
 	RETVAL=1
 	;;
 esac
-exit $RETVAL
-
+exit "${RETVAL}"

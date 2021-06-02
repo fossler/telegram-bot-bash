@@ -1,12 +1,15 @@
+#### [Home](../README.md)
+## Create a Telegram Bot with Botfather
+**[BotFather is the one bot to rule them all](https://core.telegram.org/bots#3-how-do-i-create-a-bot). It will help you create new bots and change settings for existing ones.** [Commands known by Botfather](https://core.telegram.org/bots#generating-an-authorization-token)
 
-## Create your first telegram bot
+### Creating a new Bot
 
 1. Message @botfather https://telegram.me/botfather with the following
 text: `/newbot`
    If you don't know how to message by username, click the search
 field on your Telegram app and type `@botfather`, you should be able
 to initiate a conversation. Be careful not to send it to the wrong
-contact, because some users has similar usernames to `botfather`.
+contact, because there are users with a similar username.
 
    ![botfather initial conversation](http://i.imgur.com/aI26ixR.png)
 
@@ -58,17 +61,9 @@ group. This step is up to you actually.
 
 13. @botfather replies with `Success! The new status is: DISABLED. /help`
 
-### Install bashbot
-1. Go to the directory you want to install bashbot, e.g.
 
-   - your $HOME directory (install and run with your user-ID)
-   - /usr/local if you want to run as service
+#### [Prev Installation](0_install.md)
+#### [Next Getting started](2_usage.md)
 
-2. Clone the repository:
-```
-git clone --recursive https://github.com/topkecleon/telegram-bot-bash
-```
-3. Change to directory ```telegram-bot.bash```, run ```./bashbot.sh init``` and follow the instructions. At this stage you are asked for your Bots token given by botfather.
-
-#### $$VERSION$$ v0.52-0-gdb7b19f
+#### $$VERSION$$ v1.5-0-g8adca9b
 
